@@ -6,109 +6,188 @@ import { useState, useRef, useEffect } from "react"
 
 type Message = { role: "user" | "assistant"; content: string }
 
-const predefinedResponses: { keywords: string[]; response: string }[] = [
-  {
-    keywords: ["loan", "borrow"],
-    response: `I can guide you with loan options! For example:
+const getPredefinedResponses = (lang: "en" | "hi") =>
+  lang === "hi"
+    ? [
+        {
+          keywords: ["loan", "borrow", "ऋण", "लोन"],
+          response: `मैं आपको ऋण विकल्पों में मार्गदर्शन कर सकता/सकती हूँ! उदाहरण:
+• पर्सनल लोन: ₹15 लाख तक, 10.5% वार्षिक
+• होम लोन: ₹50 लाख तक प्री-अप्रूव्ड, 8.75% वार्षिक
+क्या आप आवेदन जारी रखना चाहेंगे या और विवरण जानना चाहेंगे?`,
+        },
+        {
+          keywords: ["fraud", "security", "fraud check", "धोखाधड़ी", "सिक्योरिटी"],
+          response: `🔒 धोखाधड़ी जाँच पूरी
+
+जोखिम आकलन: कम ✓
+
+हालिया गतिविधि स्कैन:
+• ✓ सभी लेन-देन सामान्य खर्च पैटर्न में
+• ✓ कोई असामान्य लॉगिन लोकेशन नहीं
+• ✓ डिवाइस फिंगरप्रिंट अधिकृत डिवाइस से मेल खाते हैं
+• ⚠️ 1 लेन-देन समीक्षा हेतु: ₹18,500 नए पेयी को (3 दिन पहले)
+
+सक्रिय अलर्ट:
+• रियल-टाइम लेन-देन मॉनिटरिंग: चालू
+• भौगोलिक विसंगति पहचान: चालू
+• बड़े लेन-देन अलर्ट (>₹50,000): चालू
+• नए डिवाइस लॉगिन नोटिफिकेशन: चालू
+
+सुझाव:
+1) फ़्लैग किए गए लेन-देन की पुष्टि करें
+2) ₹10,000 से ऊपर 2FA सक्षम करें
+3) मोबाइल बैंकिंग के लिए बायोमेट्रिक सक्षम करें
+
+क्या आप लेन-देन इतिहास देखना या सुरक्षा सेटिंग्स बदलना चाहेंगे?`,
+        },
+        {
+          keywords: ["invest", "investment", "savings", "निवेश", "बचत"],
+          response: `आपके लिए निवेश सुझाव:
+• फिक्स्ड डिपॉज़िट: 7.5% वार्षिक
+• म्यूचुअल फंड: 12–15% ऐतिहासिक रिटर्न वाले विविध फंड
+• SIP: ₹5,000/माह से शुरू करें
+क्या मैं इनमें से किसी विकल्प पर विस्तृत जानकारी दूँ?`,
+        },
+        {
+          keywords: ["balance", "account", "summary", "बैलेंस", "खाता", "सारांश"],
+          response: `आपका खाता सारांश:
+• बचत खाता: ₹2,45,680
+• चालू खाता: ₹5,12,340
+• फिक्स्ड डिपॉज़िट: ₹10,00,000
+क्या आप विस्तृत स्टेटमेंट या खर्च विश्लेषण चाहते हैं?`,
+        },
+        {
+          keywords: ["hello", "hi", "नमस्ते"],
+          response: `नमस्ते! मैं TARA, आपकी AI बैंकिंग सहायक हूँ। मैं आपकी किस प्रकार सहायता कर सकती हूँ?`,
+        },
+      ]
+    : [
+        {
+          keywords: ["loan", "borrow"],
+          response: `I can guide you with loan options! For example:
 • Personal Loan: Up to ₹15 lakhs at 10.5% p.a.
 • Home Loan: Pre-approved for ₹50 lakhs at 8.75% p.a.
 Would you like to proceed with an application or learn more?`,
-  },
-  {
-    keywords: ["fraud", "security"],
-    response: `Your account security is our priority. Our AI monitors:
-• Unusual spending patterns
-• Login attempts from new devices
-• Large or international transactions
-All systems are secure. Would you like to review recent activity or set up additional alerts?`,
-  },
-  {
-    keywords: ["invest", "investment", "savings"],
-    response: `Here are personalized investment recommendations:
+        },
+        {
+          keywords: ["fraud", "security", "fraud check"],
+          response: `🔒 Fraud Detection Analysis Complete
+
+**Risk Assessment: LOW ✓**
+
+**Recent Activity Scan:**
+• ✓ All transactions within normal spending patterns
+• ✓ No unusual login locations detected
+• ✓ Device fingerprints match authorized devices
+• ⚠️ 1 transaction flagged for review: ₹18,500 to new payee (3 days ago)
+
+**Proactive Alerts Active:**
+• Real-time transaction monitoring: ON
+• Geographic anomaly detection: ON
+• Large transaction alerts (>₹50,000): ON
+• New device login notifications: ON
+
+**Recommendations:**
+1. Review the flagged transaction - verify if legitimate
+2. Enable 2FA for transactions above ₹10,000
+3. Set up biometric authentication for mobile banking
+
+Would you like to review your transaction history or adjust security settings?`,
+        },
+        {
+          keywords: ["invest", "investment", "savings"],
+          response: `Here are personalized investment recommendations:
 • Fixed Deposit: 7.5% p.a.
 • Mutual Funds: Diversified equity funds with 12-15% historical returns
 • SIP: Start with ₹5,000/month for wealth building
 Shall I provide detailed information on any of these options?`,
-  },
-  {
-    keywords: ["balance", "account", "summary"],
-    response: `Here's your account summary:
+        },
+        {
+          keywords: ["balance", "account", "summary"],
+          response: `Here's your account summary:
 • Savings Account: ₹2,45,680
 • Current Account: ₹5,12,340
 • Fixed Deposits: ₹10,00,000
 Would you like a detailed statement or spending analysis?`,
-  },
-  {
-    keywords: ["hello", "hi"],
-    response: `Hello! I'm TARA, your AI banking assistant. How can I assist you today?`,
-  },
-]
+        },
+        {
+          keywords: ["hello", "hi"],
+          response: `Hello! I'm TARA, your AI banking assistant. How can I assist you today?`,
+        },
+      ]
 
 export function Chatbot({ inline = false, userStats }: { inline?: boolean; userStats?: any }) {
   const [open, setOpen] = useState(inline ? true : false)
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: `Hello! I'm TARA, your AI banking assistant. \n How may I help you today?`,
+      content:
+        lang === "hi"
+          ? "नमस्ते! मैं TARA, आपकी AI बैंकिंग सहायक हूँ। मैं आपकी किस प्रकार सहायता कर सकती हूँ?"
+          : "Hello! I'm TARA, your AI banking assistant. \n How may I help you today?",
     },
   ])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Scroll chat to bottom on new message
   const messagesEndRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, loading])
 
-async function sendMessage(e?: React.FormEvent, message?: string) {
-  e?.preventDefault()
-  const prompt = (message || input.trim()).toLowerCase()
-  if (!prompt) return
+  const responses = getPredefinedResponses(lang)
 
-  // Add user message
-  setMessages((prev) => [
-    ...prev,
-    { role: "user", content: message || input.trim() },
-  ])
-  setInput("")
-  setLoading(true)
+  async function sendMessage(e?: React.FormEvent, message?: string) {
+    e?.preventDefault()
+    const prompt = (message || input.trim()).toLowerCase()
+    if (!prompt) return
 
-  setTimeout(() => {
-    let response = "I'm here to assist you with Tata Capital Banking services."
+    setMessages((prev) => [...prev, { role: "user", content: message || input.trim() }])
+    setInput("")
+    setLoading(true)
 
-    // Check for 'proceed with application'
-    if (prompt === "proceed with application") {
-      response = `Great! To proceed with your loan application, you'll need to provide the following:
-1. Proof of Identity (Aadhar, PAN, Passport, etc.)
+    setTimeout(() => {
+      let response =
+        lang === "hi"
+          ? "मैं टाटा कैपिटल बैंकिंग सेवाओं में आपकी सहायता के लिए उपलब्ध हूँ।"
+          : "I'm here to assist you with Tata Capital Banking services."
+
+      if (prompt === "proceed with application" || prompt.includes("आवेदन")) {
+        response =
+          lang === "hi"
+            ? `बहुत बढ़िया! आवेदन आगे बढ़ाने के लिए आपको ये दस्तावेज़ चाहिए:
+1. पहचान प्रमाण (आधार, पैन, पासपोर्ट)
+2. पते का प्रमाण (यूटिलिटी बिल, पासपोर्ट, रेंट एग्रीमेंट)
+3. आय प्रमाण (सैलरी स्लिप, बैंक स्टेटमेंट, आईटीआर)
+4. नौकरी विवरण (कंपनी, पद, अनुभव)
+5. ऋण विवरण (राशि, उद्देश्य, अवधि)
+क्या मैं अभी आवेदन शुरू कर दूँ?`
+            : `Great! To proceed with your loan application, you'll need:
+1. Proof of Identity (Aadhar, PAN, Passport)
 2. Proof of Address (Utility bills, Passport, Rent Agreement)
 3. Income Proof (Salary slips, Bank statements, ITRs)
-4. Employment Details (Company name, Designation, Experience)
-5. Loan Details (Amount required, Purpose, Tenure)
-
-Please make sure you have these documents ready. Would you like me to start the application process now?`
-    } else {
-      // Match predefined responses
-      for (const rule of predefinedResponses) {
-        if (rule.keywords.some((kw) => prompt.includes(kw))) {
-          response = rule.response
-          break
+4. Employment Details (Company, Designation, Experience)
+5. Loan Details (Amount, Purpose, Tenure)
+Shall I start the application now?`
+      } else {
+        for (const rule of responses) {
+          if (rule.keywords.some((kw) => prompt.includes(kw))) {
+            response = rule.response
+            break
+          }
         }
       }
-    }
 
-    setMessages((prev) => [
-      ...prev,
-      { role: "assistant", content: response },
-    ])
-    setLoading(false)
-    inputRef.current?.focus()
-  }, 1000)
-}
+      setMessages((prev) => [...prev, { role: "assistant", content: response }])
+      setLoading(false)
+      inputRef.current?.focus()
+    }, 1000)
+  }
 
-  const quickActions = ["Check Balance", "Apply for Loan", "Investment Advice", "Security Check"]
+  const quickActions = ["Check Balance", "Apply for Loan", "Investment Advice", "Security Check", "Fraud Check"]
 
   if (inline) {
     return (

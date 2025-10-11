@@ -2,7 +2,15 @@ import { NextResponse } from "next/server"
 import { generateText } from "ai"
 
 export async function POST(req: Request) {
-  const { prompt, userStats } = await req.json()
+  const body = await req.json()
+  const { prompt, userStats, language: bodyLang } = body || {}
+  const headerLang = req.headers.get("x-user-lang")?.toLowerCase()
+  const lang = (bodyLang || headerLang) === "hi" ? "hi" : "en"
+
+  const languageInstruction =
+    lang === "hi"
+      ? "Always respond in Hindi (hi) using clear, professional banking terminology. If the user writes in English, reply in Hindi unless they explicitly request English."
+      : "Always respond in English using clear, professional banking terminology."
 
   const systemPreamble = [
     "You are the private, agentic banking assistant for Tata Capital Banking. Be positive, concise, and helpful.",
@@ -12,6 +20,7 @@ export async function POST(req: Request) {
     "Safety: Never ask for sensitive PII (full card numbers, OTPs, passwords). For account actions, guide users to the secure app or official support.",
     "Internal capabilities (apply as appropriate): Proactive Default Prediction; Automated Fraud Detection; Personalized Financial Assistant; Seamless Onboarding; Proactive Customer Support; Optimized Treasury Management (guidance only, no execution).",
     "Do not claim to perform real-time monitoring or execute actions; provide guidance and next steps instead.",
+    languageInstruction,
   ].join(" ")
 
   const statsText = userStats ? `\n\nUser Snapshot (JSON): ${JSON.stringify(userStats)}` : ""
@@ -21,5 +30,5 @@ export async function POST(req: Request) {
     prompt: `${systemPreamble}${statsText}\n\nUser: ${prompt}\nAssistant:`,
   })
 
-  return NextResponse.json({ reply: text })
+  return NextResponse.json({ reply: text, lang })
 }
